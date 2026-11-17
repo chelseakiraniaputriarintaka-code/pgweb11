@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web GIS Gunungkidul - GeoServer + LeafletJS</title>
+
+    <!-- 1. CSS LeafletJS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Styling Judul Utama di Bagian Atas Antarmuka */
+        .map-header {
+            background-color: #0d3b66; /* Warna biru khas akademik */
+            color: #ffffff;
+            padding: 12px 20px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .map-header h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 0.3px;
+        }
+
+        .map-header p {
+            margin: 2px 0 0 0;
+            font-size: 12px;
+            color: #dce6f1;
+        }
+
+        /* Wadah Peta Mengisi Sisa Layar di Bawah Judul */
+        #map {
+            flex: 1;
+            width: 100%;
+        }
+
+        /* Styling khusus agar legenda rapi dan bisa di-scroll */
+        .info.legend {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 10px 12px;
+            border-radius: 6px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+            max-height: 260px;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #333;
+        }
+
+        .info.legend h4 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            font-weight: bold;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 4px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        /* Simbol titik untuk Toponimi */
+        .symbol-point {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #e74c3c;
+            border: 1.5px solid #ffffff;
+            box-shadow: 0 0 2px #000;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+
+        /* Simbol garis untuk Sungai */
+        .symbol-line {
+            display: inline-block;
+            width: 18px;
+            height: 4px;
+            background-color: #3498db;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Bagian Judul Antarmuka Web GIS -->
+    <header class="map-header">
+        <div>
+            <h1>Peta Administrasi, Jaringan Sungai, dan Toponimi Kabupaten Gunungkidul</h1>
+            <p>Praktikum Pemrograman Geospasial Web &mdash; GeoServer &amp; LeafletJS</p>
+        </div>
+    </header>
+
+    <!-- Wadah Peta -->
+    <div id="map"></div>
+
+    <!-- 2. Library JavaScript Leaflet & jQuery -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    
+    <!-- 3. Plugin Leaflet-Geoserver -->
+    <script src="lib/L.Geoserver.js"></script>
+
+    <script>
+        // Inisialisasi peta wilayah Kabupaten Gunungkidul
+        var map = L.map("map").setView([-7.997, 110.602], 11);
+
+        // ==========================================
+        // 1. BASEMAP
+        // ==========================================
+        var osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        });
+        osm.addTo(map);
+
+        // ==========================================
+        // 2. OVERLAY LAYERS (URUTAN RENDER PETA: POLYGON -> GARIS -> TITIK)
+        // ==========================================
+        
+        // Fitur Polygon: Batas Administrasi Desa
+        var layerPolygon = L.Geoserver.wms("http://localhost:8080/geoserver/wms", {
+            layers: "pgweb11:ADMINISTRASIDESA_AR_25K",
+            transparent: true,
+        });
+        layerPolygon.addTo(map);
+
+        // Fitur Garis: Sungai
+        var layerGaris = L.Geoserver.wms("http://localhost:8080/geoserver/wms", {
+            layers: "pgweb11:SUNGAI_AR_25K",
+            transparent: true,
+        });
+        layerGaris.addTo(map);
+
+        // Fitur Titik: Toponimi
+        var layerTitik = L.Geoserver.wms("http://localhost:8080/geoserver/wms", {
+            layers: "pgweb11:TOPONIMI_PT_25K",
+            transparent: true,
+        });
+        layerTitik.addTo(map);
+
+        // ==========================================
+        // 3. LAYER CONTROL (URUTAN MENU: TITIK -> GARIS -> POLYGON)
+        // ==========================================
+        var baseMaps = {
+            "Basemap - OpenStreetMap": osm
+        };
+
+        var overlayMaps = {
+            "Titik - Toponimi": layerTitik,
+            "Garis - Sungai": layerGaris,
+            "Polygon - Batas Administrasi Desa": layerPolygon
+        };
+
+        var layerControl = L.control.layers(baseMaps, overlayMaps, {
+            collapsed: false
+        }).addTo(map);
+
+        // ==========================================
+        // 4. LEGENDA SCROLLABLE (TITIK -> GARIS -> POLYGON)
+        // ==========================================
+        var customLegend = L.control({ position: "bottomleft" });
+
+        customLegend.onAdd = function (map) {
+            var div = L.DomUtil.create("div", "info legend");
+            
+            L.DomEvent.disableScrollPropagation(div);
+            L.DomEvent.disableClickPropagation(div);
+
+            var geoserverUrl = "http://localhost:8080/geoserver/wms";
+            var legendDesaImg = geoserverUrl + "?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=pgweb11:ADMINISTRASIDESA_AR_25K";
+
+            div.innerHTML = `
+                <h4>Legenda</h4>
+                <div class="legend-item">
+                    <span class="symbol-point"></span>
+                    <span>Titik - Toponimi</span>
+                </div>
+                <div class="legend-item">
+                    <span class="symbol-line"></span>
+                    <span>Garis - Sungai</span>
+                </div>
+                <hr style="border: 0; border-top: 1px solid #ddd; margin: 8px 0;">
+                <div style="font-weight: bold; margin-bottom: 4px;">Polygon - Batas Administrasi Desa</div>
+                <img src="${legendDesaImg}" alt="Legenda Batas Desa">
+            `;
+            return div;
+        };
+        customLegend.addTo(map);
+    </script>
+
+</body>
+</html>
