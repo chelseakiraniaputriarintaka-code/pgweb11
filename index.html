@@ -19,9 +19,8 @@
             flex-direction: column;
         }
 
-        /* Styling Judul Utama di Bagian Atas Antarmuka */
         .map-header {
-            background-color: #0d3b66; /* Warna biru khas akademik */
+            background-color: #0d3b66;
             color: #ffffff;
             padding: 12px 20px;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
@@ -44,13 +43,11 @@
             color: #dce6f1;
         }
 
-        /* Wadah Peta Mengisi Sisa Layar di Bawah Judul */
         #map {
             flex: 1;
             width: 100%;
         }
 
-        /* Styling khusus agar legenda rapi dan bisa di-scroll */
         .info.legend {
             background-color: rgba(255, 255, 255, 0.95);
             padding: 10px 12px;
@@ -77,7 +74,6 @@
             margin-bottom: 6px;
         }
 
-        /* Simbol titik untuk Toponimi */
         .symbol-point {
             display: inline-block;
             width: 10px;
@@ -90,7 +86,6 @@
             flex-shrink: 0;
         }
 
-        /* Simbol garis untuk Sungai */
         .symbol-line {
             display: inline-block;
             width: 18px;
@@ -103,7 +98,6 @@
 </head>
 <body>
 
-    <!-- Bagian Judul Antarmuka Web GIS -->
     <header class="map-header">
         <div>
             <h1>Peta Administrasi, Jaringan Sungai, dan Toponimi Kabupaten Gunungkidul</h1>
@@ -111,7 +105,6 @@
         </div>
     </header>
 
-    <!-- Wadah Peta -->
     <div id="map"></div>
 
     <!-- 2. Library JavaScript Leaflet & jQuery -->
@@ -122,8 +115,19 @@
     <script src="lib/L.Geoserver.js"></script>
 
     <script>
-        // Inisialisasi peta wilayah Kabupaten Gunungkidul
         var map = L.map("map").setView([-7.997, 110.602], 11);
+
+        // ==========================================
+        // PENGATURAN PANE PERMANEN (CONTAINER TERPISAH)
+        // ==========================================
+        map.createPane("panePolygon");
+        map.getPane("panePolygon").style.zIndex = 410; // Paling bawah
+
+        map.createPane("paneGaris");
+        map.getPane("paneGaris").style.zIndex = 450;   // Tengah
+
+        map.createPane("paneTitik");
+        map.getPane("paneTitik").style.zIndex = 490;   // Paling atas
 
         // ==========================================
         // 1. BASEMAP
@@ -135,32 +139,36 @@
         osm.addTo(map);
 
         // ==========================================
-        // 2. OVERLAY LAYERS (URUTAN RENDER PETA: POLYGON -> GARIS -> TITIK)
+        // 2. OVERLAY LAYERS (DENGAN PANE MASING-MASING)
         // ==========================================
         
-        // Fitur Polygon: Batas Administrasi Desa
+        // Polygon di panePolygon (zIndex 410 - Paling Bawah)
         var layerPolygon = L.Geoserver.wms("http://localhost:8080/geoserver/wms", {
             layers: "pgweb11:ADMINISTRASIDESA_AR_25K",
             transparent: true,
+            pane: "panePolygon",
+            opacity: 0.85
         });
         layerPolygon.addTo(map);
 
-        // Fitur Garis: Sungai
+        // Garis Sungai di paneGaris (zIndex 450 - Tengah)
         var layerGaris = L.Geoserver.wms("http://localhost:8080/geoserver/wms", {
             layers: "pgweb11:SUNGAI_AR_25K",
             transparent: true,
+            pane: "paneGaris"
         });
         layerGaris.addTo(map);
 
-        // Fitur Titik: Toponimi
+        // Titik Toponimi di paneTitik (zIndex 490 - Paling Atas)
         var layerTitik = L.Geoserver.wms("http://localhost:8080/geoserver/wms", {
             layers: "pgweb11:TOPONIMI_PT_25K",
             transparent: true,
+            pane: "paneTitik"
         });
         layerTitik.addTo(map);
 
         // ==========================================
-        // 3. LAYER CONTROL (URUTAN MENU: TITIK -> GARIS -> POLYGON)
+        // 3. LAYER CONTROL (COLLAPSIBLE / CLEAN)
         // ==========================================
         var baseMaps = {
             "Basemap - OpenStreetMap": osm
@@ -172,12 +180,12 @@
             "Polygon - Batas Administrasi Desa": layerPolygon
         };
 
-        var layerControl = L.control.layers(baseMaps, overlayMaps, {
-            collapsed: false
+        L.control.layers(baseMaps, overlayMaps, {
+            collapsed: true
         }).addTo(map);
 
         // ==========================================
-        // 4. LEGENDA SCROLLABLE (TITIK -> GARIS -> POLYGON)
+        // 4. LEGENDA SCROLLABLE
         // ==========================================
         var customLegend = L.control({ position: "bottomleft" });
 
